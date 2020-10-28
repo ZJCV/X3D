@@ -1,0 +1,5 @@
+demo/videos/
+demo/results/
+.idea/
+outputs/
+*.pyc
