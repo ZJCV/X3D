@@ -1,0 +1,51 @@
+NUM_GPUS: 1
+NUM_NODES: 1
+RANK_ID: 0
+DIST_BACKEND: "nccl"
+RNG_SEED: 1
+OUTPUT_DIR: 'outputs/tsn_r50_ucf101_rgb_raw_dense_1x16x4'
+DATASETS:
+  MODALITY: 'RGB'
+  CLIP_LEN: 1
+  FRAME_INTERVAL: 16
+  NUM_CLIPS: 4
+TRANSFORM:
+  MEAN: (0.485, 0.456, 0.406)
+  STD: (0.229, 0.224, 0.225)
+  TEST:
+    SHORTER_SIDE: 256
+    CENTER_CROP: True
+    THREE_CROP: False
+    TEST_CROP_SIZE: 256
+MODEL:
+  NAME: 'TSN'
+  PRETRAINED: ''
+  SYNC_BN: True
+  INPUT_SIZE: (224, 224, 3)
+  BACKBONE:
+    NAME: 'resnet50'
+    PARTIAL_BN: False
+    TORCHVISION_PRETRAINED: True
+    ZERO_INIT_RESIDUAL: True
+  HEAD:
+    NAME: 'TSNHead'
+    FEATURE_DIMS: 2048
+    DROPOUT: 0.5
+    NUM_CLASSES: 101
+  RECOGNIZER:
+    NAME: 'TSNRecognizer'
+  CONSENSU:
+    NAME: 'AvgConsensus'
+  CRITERION:
+    NAME: 'CrossEntropyLoss'
+VISUALIZATION:
+  ENABLE: True
+  THREAD_ENABLE: False
+  WEBCAM: -1
+  INPUT_VIDEO: './demo/videos/v_Rowing_g15_c04.avi'
+#  INPUT_VIDEO: './demo/videos/v_Lunges_g16_c01.avi'
+  DISPLAY_WIDTH: 0
+  DISPLAY_HEIGHT: 0
+  OUTPUT_FPS: -1
+  OUTPUT_FILE: ""
+  LABEL_FILE_PATH: 'data/ucf101/annotations/classInd.txt'
