@@ -3,7 +3,7 @@ NUM_NODES: 1
 RANK_ID: 0
 DIST_BACKEND: "nccl"
 RNG_SEED: 1
-OUTPUT_DIR: 'outputs/c2d_r50_ucf101_rgb_raw_dense_1x2x32'
+OUTPUT_DIR: 'outputs/i3d-3x3_r3d50_ucf101_rgb_raw_dense_1x2x32'
 TRAIN:
   MAX_ITER: 30000
   LOG_STEP: 10
@@ -51,50 +51,59 @@ DATALOADER:
   TEST_BATCH_SIZE: 12
   NUM_WORKERS: 8
 MODEL:
-  NAME: 'NL'
+  NAME: 'I3D_3x3x3'
   PRETRAINED: ''
   SYNC_BN: True
-  INPUT_SIZE: (224, 224, 3)
+  CONV_LAYER: 'Conv3d'
+  POOL_LAYER: 'MaxPool3d'
+  NORM_LAYER: 'BatchNorm3d'
+  ACT_LAYER: 'ReLU'
   BACKBONE:
-    NAME: 'resnet3d_50'
+    NAME: 'R3D50'
+    IN_CHANNELS: 3
     PARTIAL_BN: False
     TORCHVISION_PRETRAINED: True
     ZERO_INIT_RESIDUAL: True
-    TYPE: 'C2D'
-    IN_CHANNELS: 3
-    SPATIAL_STRIDES: (1, 2, 2, 2)
-    TEMPORAL_STRIDES: (1, 1, 1, 1)
-    DILATIONS: (1, 1, 1, 1)
     BASE_CHANNEL: 64
-    CONV1_KERNEL: (1, 7, 7)
-    CONV1_STRIDE_T: 2
-    POOL1_STRIDE_T: 2
+    CONV1_LAYER: 'Conv3d'
+    CONV1_KERNEL: (5, 7, 7)
+    CONV1_STRIDE: (2, 2, 2)
+    CONV1_PADDING: (2, 3, 3)
+    WITH_POOL1: True
+    POOL1_KERNEL: (3, 3, 3)
+    POOL1_STRIDE: (2, 2, 2)
     WITH_POOL2: True
-    INFLATES: (0, 0, 0, 0)
-    INFLATE_STYLE: '3x1x1'
-    NON_LOCAL: (0, 0, 0, 0)
+    POOL2_KERNEL: (3, 1, 1)
+    POOL2_STRIDE: (2, 1, 1)
+    STAGE_BLOCKS: (3, 4, 6, 3)
+    RES_PLANES: (64, 128, 256, 512)
+    EXPANSION: 4
+    SPATIAL_STRIDES: (1, 2, 2, 2)
+    INFLATES: ((1, 1, 1), (1, 0, 1, 0), (1, 0, 1, 0, 1, 0), (0, 1, 0))
+    INFLATE_STYLE: '3x3x3'
   HEAD:
-    NAME: 'NLHead'
+    NAME: 'I3DHead'
     FEATURE_DIMS: 2048
     DROPOUT: 0.5
     NUM_CLASSES: 101
   RECOGNIZER:
-    NAME: 'NLRecognizer'
+    NAME: 'I3DRecognizer'
   CONSENSU:
     NAME: 'AvgConsensus'
   CRITERION:
     NAME: 'CrossEntropyLoss'
 OPTIMIZER:
-  NAME: 'sgd'
-  LR: 1e-3
-  WEIGHT_DECAY: 1e-4
+  NAME: 'SGD'
+  LR: 1e-2
+  WEIGHT_DECAY: 3e-5
   SGD:
     MOMENTUM: 0.9
 LR_SCHEDULER:
-  NAME: 'cosine_annearling_lr'
+  NAME: 'MultiStepLR'
   IS_WARMUP: True
-  COSINE_ANNEALING_LR:
-    MINIMAL_LR: 3e-4
+  GAMMA: 0.1
+  MULTISTEP_LR:
+    MILESTONES: [ 15000, 25000 ]
   WARMUP:
     ITERATION: 400
     MULTIPLIER: 1.0

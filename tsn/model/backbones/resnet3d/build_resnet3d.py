@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-@date: 2020/9/25 下午1:56
+@date: 2020/11/3 上午9:40
 @file: build_resnet3d.py
 @author: zj
 @description: 
@@ -10,9 +10,16 @@
 from torchvision.models.utils import load_state_dict_from_url
 
 from .resnet3d import ResNet3d
+from .bottleneck3d import Bottleneck3d
 from tsn.model import registry
 
-__all__ = ['ResNet3d', 'resnet3d_18', 'resnet3d_34', 'resnet3d_50', 'resnet3d_101',
+from tsn.util.distributed import get_device, get_local_rank
+from tsn.model.layers.conv_helper import get_conv
+from tsn.model.layers.pool_helper import get_pool
+from tsn.model.layers.norm_helper import get_norm
+from tsn.model.layers.act_helper import get_act
+
+__all__ = ['ResNet3d', 'resnet3d_50', 'resnet3d_101',
            'resnet3d_152', ]
 
 model_urls = {
@@ -28,68 +35,92 @@ model_urls = {
 }
 
 
-def _resnet(arch, cfg, map_location=None):
+def _load_pretrained(arch, map_location=None):
+    state_dict_2d = load_state_dict_from_url(model_urls[arch],
+                                             progress=True,
+                                             map_location=map_location)
+    return state_dict_2d
+
+
+def _resnet(arch, cfg, block_layer):
     pretrained2d = cfg.MODEL.BACKBONE.TORCHVISION_PRETRAINED
     state_dict_2d = None
     if pretrained2d:
-        state_dict_2d = load_state_dict_from_url(model_urls[arch],
-                                                 progress=True,
-                                                 map_location=map_location)
+        device = get_device(local_rank=get_local_rank())
+        state_dict_2d = _load_pretrained(arch, map_location=device)
 
-    type = cfg.MODEL.BACKBONE.TYPE
-    in_channels = cfg.MODEL.BACKBONE.IN_CHANNELS
-    spatial_strides = cfg.MODEL.BACKBONE.SPATIAL_STRIDES
-    temporal_strides = cfg.MODEL.BACKBONE.TEMPORAL_STRIDES
-    dilations = cfg.MODEL.BACKBONE.DILATIONS
-    base_channel = cfg.MODEL.BACKBONE.BASE_CHANNEL
-    conv1_kernel = cfg.MODEL.BACKBONE.CONV1_KERNEL
-    conv1_stride_t = cfg.MODEL.BACKBONE.CONV1_STRIDE_T
-    pool1_kernel_t = cfg.MODEL.BACKBONE.POOL1_KERNEL_T
-    pool1_stride_t = cfg.MODEL.BACKBONE.POOL1_STRIDE_T
-    with_pool2 = cfg.MODEL.BACKBONE.WITH_POOL2
-    inflates = cfg.MODEL.BACKBONE.INFLATES
-    inflate_style = cfg.MODEL.BACKBONE.INFLATE_STYLE
-    non_local = cfg.MODEL.BACKBONE.NON_LOCAL
-    zero_init_residual = cfg.MODEL.BACKBONE.ZERO_INIT_RESIDUAL
-    model = ResNet3d(arch,
-                     in_channels=in_channels,
-                     spatial_strides=spatial_strides,
-                     temporal_strides=temporal_strides,
-                     dilations=dilations,
-                     base_channel=base_channel,
-                     conv1_kernel=conv1_kernel,
-                     conv1_stride_t=conv1_stride_t,
-                     pool1_kernel_t=pool1_kernel_t,
-                     pool1_stride_t=pool1_stride_t,
-                     with_pool2=with_pool2,
-                     inflates=inflates,
-                     inflate_style=inflate_style,
-                     non_local=non_local,
-                     zero_init_residual=zero_init_residual,
-                     state_dict_2d=state_dict_2d)
+    conv1_layer = get_conv(cfg.MODEL.BACKBONE.CONV1_LAYER)
+    conv_layer = get_conv(cfg.MODEL.CONV_LAYER)
+    pool_layer = get_pool(cfg.MODEL.POOL_LAYER)
+    norm_layer = get_norm(cfg.MODEL.NORM_LAYER)
+    act_layer = get_act(cfg.MODEL.ACT_LAYER)
+
+    model = ResNet3d(
+        # 输入通道数
+        in_channels=cfg.MODEL.BACKBONE.IN_CHANNELS,
+        # Stem通道数
+        base_channel=cfg.MODEL.BACKBONE.BASE_CHANNEL,
+        # 第一个卷积层类型
+        conv1_layer=conv1_layer,
+        # 第一个卷积层kernel_size
+        conv1_kernel=cfg.MODEL.BACKBONE.CONV1_KERNEL,
+        # 第一个卷积层步长
+        conv1_stride=cfg.MODEL.BACKBONE.CONV1_STRIDE,
+        # 第一个卷积层零填充
+        conv1_padding=cfg.MODEL.BACKBONE.CONV1_PADDING,
+        # 是否使用第一个池化层
+        with_pool1=cfg.MODEL.BACKBONE.WITH_POOL1,
+        # 第一个池化层kernel_size
+        pool1_kernel=cfg.MODEL.BACKBONE.POOL1_KERNEL,
+        # 第一个池化层步长
+        pool1_stride=cfg.MODEL.BACKBONE.POOL1_STRIDE,
+        # 是否使用第二个池化层
+        with_pool2=cfg.MODEL.BACKBONE.WITH_POOL2,
+        # 第二个池化层kernel_size
+        pool2_kernel=cfg.MODEL.BACKBONE.POOL2_KERNEL,
+        # 第二个池化层步长
+        pool2_stride=cfg.MODEL.BACKBONE.POOL2_STRIDE,
+        # 各层块个数，以R50为例
+        stage_blocks=cfg.MODEL.BACKBONE.STAGE_BLOCKS,
+        # 各层Block第一个卷积层的输出通道数
+        res_planes=cfg.MODEL.BACKBONE.RES_PLANES,
+        # 膨胀系数，以Bottleneck为例
+        expansion=cfg.MODEL.BACKBONE.EXPANSION,
+        # 空间步长
+        spatial_strides=cfg.MODEL.BACKBONE.SPATIAL_STRIDES,
+        # 是否进行膨胀
+        inflates=cfg.MODEL.BACKBONE.INFLATES,
+        # 膨胀类型
+        inflate_style=cfg.MODEL.BACKBONE.INFLATE_STYLE,
+        # 卷积层类型
+        conv_layer=conv_layer,
+        # 池化层类型
+        pool_layer=pool_layer,
+        # 归一化层类型
+        norm_layer=norm_layer,
+        # 激活层类型
+        act_layer=act_layer,
+        # 块类型
+        block_layer=block_layer,
+        # 是否进行残差分支零初始化
+        zero_init_residual=cfg.MODEL.BACKBONE.ZERO_INIT_RESIDUAL,
+        # 是否加载预训练模型
+        state_dict_2d=state_dict_2d,
+        # 是否进行partialBN
+        partial_bn=cfg.MODEL.BACKBONE.PARTIAL_BN)
     return model
 
 
-@registry.BACKBONE.register('resnet3d_18')
-def resnet3d_18(cfg, map_location=None):
-    return _resnet("resnet18", cfg, map_location=map_location)
+@registry.BACKBONE.register('R3D50')
+def resnet3d_50(cfg):
+    return _resnet("resnet50", cfg, Bottleneck3d)
 
 
-@registry.BACKBONE.register('resnet3d_34')
-def resnet3d_34(cfg, map_location=None):
-    return _resnet("resnet34", cfg, map_location=map_location)
+@registry.BACKBONE.register('R3D101')
+def resnet3d_101(cfg):
+    return _resnet("resnet101", cfg, Bottleneck3d)
 
 
-@registry.BACKBONE.register('resnet3d_50')
-def resnet3d_50(cfg, map_location=None):
-    return _resnet("resnet50", cfg, map_location=map_location)
-
-
-@registry.BACKBONE.register('resnet3d_101')
-def resnet3d_101(cfg, map_location=None):
-    return _resnet("resnet101", cfg, map_location=map_location)
-
-
-@registry.BACKBONE.register('resnet3d_152')
-def resnet3d_152(cfg, map_location=None):
-    return _resnet("resnet152", cfg, map_location=map_location)
+@registry.BACKBONE.register('R3D152')
+def resnet3d_152(cfg):
+    return _resnet("resnet152", cfg, Bottleneck3d)

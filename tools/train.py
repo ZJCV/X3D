@@ -12,8 +12,10 @@ import torch
 
 from tsn.data.build import build_dataloader
 from tsn.engine.trainer import do_train
-from tsn.model.build import build_model, build_criterion
-from tsn.optim.build import build_optimizer, build_lr_scheduler
+from tsn.model.recognizers.build import build_recognizer
+from tsn.model.criterions.build import build_criterion
+from tsn.optim.optimizers.build import build_optimizer
+from tsn.optim.lr_schedulers.build import build_lr_scheduler
 from tsn.util import logging
 from tsn.util.checkpoint import CheckPointer
 from tsn.util.collect_env import collect_env_info
@@ -36,7 +38,7 @@ def train(cfg):
     arguments = {"iteration": 0}
 
     device = get_device(get_local_rank())
-    model = build_model(cfg, device)
+    model = build_recognizer(cfg, device)
     criterion = build_criterion(cfg, device)
     optimizer = build_optimizer(cfg, model)
     lr_scheduler = build_lr_scheduler(cfg, optimizer)

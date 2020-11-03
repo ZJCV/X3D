@@ -13,7 +13,7 @@ import torch.optim as optim
 from tsn.optim import registry
 
 
-@registry.OPTIMIZERS.register('adam')
+@registry.OPTIMIZERS.register('ADAM')
 def build_adam(cfg, model):
     assert isinstance(model, nn.Module)
 

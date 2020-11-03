@@ -13,7 +13,7 @@ from torch.optim.optimizer import Optimizer
 from tsn.optim import registry
 
 
-@registry.LR_SCHEDULERS.register('step_lr')
+@registry.LR_SCHEDULERS.register('StepLR')
 def build_step_lr(cfg, optimizer):
     assert isinstance(optimizer, Optimizer)
 

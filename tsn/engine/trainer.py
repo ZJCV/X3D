@@ -37,11 +37,11 @@ def do_train(cfg, arguments,
         summary_writer = SummaryWriter(log_dir=os.path.join(cfg.OUTPUT_DIR, 'tf_logs'))
     evaluator = data_loader.dataset.evaluator
 
+    logger.info("Start training ...")
+    model.train()
     synchronize()
     start_training_time = time.time()
     end = time.time()
-    logger.info("Start training ...")
-    model.train()
     for iteration, (images, targets) in enumerate(data_loader, start_iter):
         iteration = iteration + 1
         arguments["iteration"] = iteration

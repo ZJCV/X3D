@@ -10,7 +10,8 @@
 from tsn.model import registry
 
 from .tsn_head import TSNHead
-from .nl_head import NLHead
+from .i3d_head import I3DHead
+from .x3d_head import X3DHead
 
 
 def build_head(cfg):

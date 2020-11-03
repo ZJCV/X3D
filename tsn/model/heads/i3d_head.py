@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-@date: 2020/9/10 下午7:38
-@file: tsn_head.py
+@date: 2020/9/29 下午3:31
+@file: i3d_head.py
 @author: zj
 @description: 
 """
@@ -13,17 +13,17 @@ import torch.nn as nn
 from tsn.model import registry
 
 
-@registry.HEAD.register('TSNHead')
-class TSNHead(nn.Module):
+@registry.HEAD.register('I3DHead')
+class I3DHead(nn.Module):
 
     def __init__(self, cfg):
-        super(TSNHead, self).__init__()
+        super(I3DHead, self).__init__()
 
         in_channels = cfg.MODEL.HEAD.FEATURE_DIMS
         num_classes = cfg.MODEL.HEAD.NUM_CLASSES
         dropout_rate = cfg.MODEL.HEAD.DROPOUT
 
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.avgpool = nn.AdaptiveAvgPool3d((1, 1, 1))
         self.fc = nn.Linear(in_channels, num_classes)
         if dropout_rate == 0.0:
             self.dropout = None

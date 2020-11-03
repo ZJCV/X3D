@@ -13,7 +13,7 @@ from torch.optim.optimizer import Optimizer
 from tsn.optim import registry
 
 
-@registry.LR_SCHEDULERS.register('cosine_annearling_lr')
+@registry.LR_SCHEDULERS.register('CosineAnnearlingLR')
 def build_cosine_annearling_lr(cfg, optimizer):
     assert isinstance(optimizer, Optimizer)
 

@@ -13,7 +13,7 @@ from torch.optim.optimizer import Optimizer
 from tsn.optim import registry
 
 
-@registry.LR_SCHEDULERS.register('multistep_lr')
+@registry.LR_SCHEDULERS.register('MultiStepLR')
 def build_multistep_lr(cfg, optimizer):
     assert isinstance(optimizer, Optimizer)
 

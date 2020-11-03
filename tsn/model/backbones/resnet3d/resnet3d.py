@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-@date: 2020/9/28 下午4:49
+@date: 2020/11/2 下午7:24
 @file: resnet3d.py
 @author: zj
 @description: 
@@ -10,148 +10,240 @@
 import torch.nn as nn
 from torch.nn.modules.module import T
 
-from .utility import convTxHxW, _triple, _quadruple
-from .basic_block_3d import BasicBlock3d
-from .bottleneck_3d import Bottleneck3d
+from .bottleneck3d import Bottleneck3d
+from .basic_block3d import BasicBlock3d
 
 
 class ResNet3d(nn.Module):
-    """ResNet 3d backbone.
-
-    Args:
-        depth (int): Depth of resnet, from {18, 34, 50, 101, 152}.
-        in_channels (int): Channel num of input features. Default: 3.
-        spatial_strides (Sequence[int]):
-            Spatial strides of residual blocks of each stage.
-            Default: ``(1, 2, 2, 2)``.
-        temporal_strides (Sequence[int]):
-            Temporal strides of residual blocks of each stage.
-            Default: ``(1, 1, 1, 1)``.
-        dilations (Sequence[int]): Dilation of each stage.
-            Default: ``(1, 1, 1, 1)``.
-        conv1_kernel (Sequence[int]): Kernel size of the first conv layer.
-            Default: ``(1, 7, 7)``.
-        conv1_stride_t (int): Temporal stride of the first conv layer.
-            Default: 2.
-        pool1_stride_t (int): Temporal stride of the first pooling layer.
-            Default: 2.
-        with_pool2 (bool): Whether to use pool2. Default: True.
-        inflate (Sequence[int]): Inflate Dims of each block.
-            Default: (0, 0, 0, 0).
-        inflate_style (str): ``3x1x1`` or ``1x1x1``. which determines the
-            kernel sizes and padding strides for conv1 and conv2 in each block.
-            Default: '3x1x1'.
-        non_local (Sequence[int]): Determine whether to apply non-local module
-            in the corresponding block of each stages. Default: (0, 0, 0, 0).
-        norm_layer (nn.Module): norm layers.
-            Default: None.
-        act_layer (nn.Module): activation layer.
-            Default: None.
-        zero_init_residual (bool):
-            Whether to use zero initialization for residual block,
-            Default: True.
-        state_dict_2d (bool): pretrained 2D model.
-            Default: None.
-        partial_bn (bool): freezing all bn except the first
-            Default: False
-        kwargs (dict, optional): Key arguments for "make_res_layer".
-    """
-
-    arch_settings = {
-        "resnet18": (BasicBlock3d, (2, 2, 2, 2)),
-        "resnet34": (BasicBlock3d, (3, 4, 6, 3)),
-        "resnet50": (Bottleneck3d, (3, 4, 6, 3)),
-        "resnet101": (Bottleneck3d, (3, 4, 23, 3)),
-        "resnet152": (Bottleneck3d, (3, 8, 36, 3))
-    }
 
     def __init__(self,
-                 depth,
+                 # 输入通道数
                  in_channels=3,
-                 spatial_strides=(1, 2, 2, 2),
-                 temporal_strides=(1, 1, 1, 1),
-                 dilations=(1, 1, 1, 1),
+                 # Stem通道数
                  base_channel=64,
+                 # 第一个卷积层类型
+                 conv1_layer=None,
+                 # 第一个卷积层kernel_size
                  conv1_kernel=(1, 7, 7),
-                 conv1_stride_t=2,
-                 pool1_kernel_t=3,
-                 pool1_stride_t=2,
+                 # 第一个卷积层步长
+                 conv1_stride=(2, 2, 2),
+                 # 第一个卷积层零填充
+                 conv1_padding=(0, 3, 3),
+                 # 是否使用第一个池化层
+                 with_pool1=True,
+                 # 第一个池化层kernel_size
+                 pool1_kernel=(3, 3, 3),
+                 # 第一个池化层步长
+                 pool1_stride=(2, 2, 2),
+                 # 是否使用第二个池化层
                  with_pool2=True,
+                 # 第二个池化层kernel_size
+                 pool2_kernel=(3, 1, 1),
+                 # 第二个池化层步长
+                 pool2_stride=(2, 1, 1),
+                 # 各层块个数，以R50为例
+                 stage_blocks=(3, 4, 6, 3),
+                 # 各层Block第一个卷积层的输出通道数
+                 res_planes=None,
+                 # 膨胀系数，以Bottleneck为例
+                 expansion=4,
+                 # 空间步长
+                 spatial_strides=(1, 2, 2, 2),
+                 # 是否进行膨胀
                  inflates=(0, 0, 0, 0),
+                 # 膨胀类型
                  inflate_style='3x1x1',
-                 non_local=(0, 0, 0, 0),
+                 # 卷积层类型
+                 conv_layer=None,
+                 # 池化层类型
+                 pool_layer=None,
+                 # 归一化层类型
                  norm_layer=None,
+                 # 激活层类型
                  act_layer=None,
+                 # 块类型
+                 block_layer=None,
+                 # 是否进行残差分支零初始化
                  zero_init_residual=True,
+                 # 是否加载预训练模型
                  state_dict_2d=None,
-                 partial_bn=False):
-        super().__init__()
-        assert len(spatial_strides) == len(temporal_strides) == len(dilations) == len(inflates) == 4
-        assert len(conv1_kernel) == 3
+                 # 是否进行partialBN
+                 partial_bn=False
+                 ):
+        super(ResNet3d, self).__init__()
+        assert len(stage_blocks) == len(spatial_strides) == len(inflates)
 
-        if depth not in self.arch_settings:
-            raise KeyError(f'invalid depth {depth} for resnet')
+        if conv1_layer is None:
+            conv1_layer = nn.Conv3d
+        if conv_layer is None:
+            conv_layer = nn.Conv3d
+        if pool_layer is None:
+            pool_layer = nn.MaxPool3d
         if norm_layer is None:
             norm_layer = nn.BatchNorm3d
         if act_layer is None:
             act_layer = nn.ReLU
+        if block_layer is None:
+            block_layer = Bottleneck3d
 
-        self.norm_layer = norm_layer
-        self.act_layer = act_layer
+        # 输入通道数
+        self.in_channels = in_channels
+        # Stem通道数
+        self.base_channel = base_channel
+        # 第一个卷积层类型
+        self.conv1_layer = conv1_layer
+        # 第一个卷积层kernel_size
+        self.conv1_kernel = conv1_kernel
+        # 第一个卷积层步长
+        self.conv1_stride = conv1_stride
+        # 是否使用第一个池化层
+        self.with_pool1 = with_pool1
+        # 第一个池化层kernel_size
+        self.pool1_kernel = pool1_kernel
+        # 第一个池化层步长
+        self.pool1_stride = pool1_stride
+        # 第一个卷积层零填充
+        self.conv1_padding = conv1_padding
+        # 是否使用第二个池化层
         self.with_pool2 = with_pool2
-        self.base_channels = base_channel
-        self._make_stem_layer(in_channels, self.base_channels, conv1_kernel, conv1_stride_t, pool1_kernel_t,
-                              pool1_stride_t)
-
-        block, stage_blocks = self.arch_settings[depth]
-        self.block = block
+        # 第二个池化层kernel_size
+        self.pool2_kernel = pool2_kernel
+        # 第二个池化层步长
+        self.pool2_stride = pool2_stride
+        # 各层块个数，以R50为例
         self.stage_blocks = stage_blocks
+        # 各层Block第一个卷积层的输出通道数
+        self.res_planes = res_planes
+        # 膨胀系数，以Bottleneck为例
+        self.expansion = expansion
+        # 空间步长
+        self.spatial_strides = spatial_strides
+        # 是否进行膨胀
+        self.inflates = inflates
+        # 膨胀类型
+        self.inflate_style = inflate_style
+        # 卷积层类型
+        self.conv_layer = conv_layer
+        # 池化层类型
+        self.pool_layer = pool_layer
+        # 归一化层类型
+        self.norm_layer = norm_layer
+        # 激活层类型
+        self.act_layer = act_layer
+        # 块类型
+        self.block_layer = block_layer
+        # 是否进行残差分支零初始化
+        self.zero_init_residual = zero_init_residual
+        # 是否加载预训练模型
+        self.state_dict_2d = state_dict_2d
+        # 是否进行partialBN
+        self.partial_bn = partial_bn
+
+        self._make_stem_layer()
 
         self.res_layers = list()
-        self.inplanes = self.base_channels
-        res_planes = [base_channel, base_channel * 2, base_channel * 2 * 2, base_channel * 2 * 2 * 2]
-        for i in range(len(stage_blocks)):
-            res_layer = self.make_res_layer(block,
-                                            res_planes[i],
-                                            stage_blocks[i],
-                                            spatial_stride=spatial_strides[i],
-                                            temporal_stride=temporal_strides[i],
-                                            dilation=dilations[i],
-                                            inflate=inflates[i],
-                                            inflate_style=inflate_style,
-                                            non_local=non_local[i],
-                                            norm_layer=self.norm_layer,
-                                            act_layer=self.act_layer)
+        self.inplanes = self.base_channel
+        res_planes = [self.base_channel,
+                      self.base_channel * 2,
+                      self.base_channel * 2 * 2,
+                      self.base_channel * 2 * 2 * 2] if self.res_planes is None else self.res_planes
+        for i in range(len(self.stage_blocks)):
+            res_layer = self._make_res_layer(self.inplanes,
+                                             res_planes[i],
+                                             self.conv_layer,
+                                             self.norm_layer,
+                                             self.act_layer,
+                                             self.block_layer,
+                                             self.stage_blocks[i],
+                                             self.expansion,
+                                             self.spatial_strides[i],
+                                             self.inflates[i],
+                                             self.inflate_style)
+            self.inplanes = int(res_planes[i] * self.expansion)
 
             layer_name = f'layer{i + 1}'
             self.add_module(layer_name, res_layer)
             self.res_layers.append(layer_name)
 
-        self.zero_init_residual = zero_init_residual
-        self._init_weights(state_dict_2d)
+        self._init_weights(self.zero_init_residual,
+                           self.state_dict_2d)
 
-        self.partial_bn = partial_bn
+    def _make_stem_layer(self):
+        self.conv1 = self.conv1_layer(self.in_channels,
+                                      self.base_channel,
+                                      kernel_size=self.conv1_kernel,
+                                      stride=self.conv1_stride,
+                                      padding=self.conv1_padding,
+                                      bias=False)
+        self.bn1 = self.norm_layer(self.base_channel)
+        self.act = self.act_layer(inplace=True)
 
-    def _init_weights(self, state_dict_2d):
+        if self.with_pool1:
+            self.pool1 = self.pool_layer(kernel_size=self.pool1_kernel,
+                                         stride=self.pool1_stride,
+                                         ceil_mode=True)
+        if self.with_pool2:
+            self.pool2 = self.pool_layer(kernel_size=self.pool2_kernel,
+                                         stride=self.pool2_stride,
+                                         ceil_mode=True)
+
+    def _make_res_layer(self,
+                        # 输入通道数
+                        inplanes,
+                        # 第一个卷积层的输出通道数
+                        planes,
+                        # 卷积层类型
+                        conv_layer,
+                        # 归一化层类型
+                        norm_layer,
+                        # 激活层类型
+                        act_layer,
+                        # 块类型
+                        block_layer,
+                        # 块个数
+                        block_num,
+                        # 膨胀系数
+                        expansion,
+                        # 空间步长，第一个block是否进行下采样
+                        spatial_stride,
+                        # 是否膨胀时间维度
+                        inflate,
+                        # 膨胀类型
+                        inflate_style
+                        ):
+        inflate = inflate if not isinstance(inflate, int) else (inflate,) * block_num
+        assert len(inflate) == block_num
+
+        layers = []
+        for i in range(block_num):
+            layers.append(
+                block_layer(
+                    inplanes,
+                    planes,
+                    spatial_stride=1 if i != 0 else spatial_stride,
+                    inflate=(inflate[0] == 1),
+                    inflate_style=inflate_style,
+                    expansion=expansion,
+                    conv_layer=conv_layer,
+                    norm_layer=norm_layer,
+                    act_layer=act_layer,
+                ))
+            inplanes = int(planes * expansion)
+        return nn.Sequential(*layers)
+
+    def _init_weights(self, zero_init_residual, state_dict_2d):
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
             elif isinstance(m, (nn.BatchNorm3d, nn.GroupNorm)):
-                if (
-                        hasattr(m, "transform_final_bn")
-                        and m.transform_final_bn
-                ):
-                    batchnorm_weight = 0.0
-                else:
-                    batchnorm_weight = 1.0
-
+                batchnorm_weight = 1.0
                 nn.init.constant_(m.weight, batchnorm_weight)
                 nn.init.constant_(m.bias, 0)
 
         # Zero-initialize the last BN in each residual branch,
         # so that the residual branch starts with zeros, and each residual block behaves like an identity.
         # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
-        if self.zero_init_residual:
+        if zero_init_residual:
             for m in self.modules():
                 if isinstance(m, Bottleneck3d):
                     nn.init.constant_(m.bn3.weight, 0)
@@ -215,131 +307,17 @@ class ResNet3d(nn.Module):
                         inflated_param_names.append(param_2d_name)
 
             inflated_param_names = []
+            keys = state_dict_2d.keys()
             for name, module in self.named_modules():
-                if 'non_local' in name:
-                    continue
                 if isinstance(module, nn.Conv3d):
                     _inflate_conv_params(module, state_dict_2d, name, inflated_param_names)
                 if isinstance(module, nn.modules.batchnorm._BatchNorm):
                     _inflate_bn_params(module, state_dict_2d, name, inflated_param_names)
 
             # check if any parameters in the 2d checkpoint are not loaded
-            remaining_names = set(
-                state_dict_2d.keys()) - set(inflated_param_names)
+            remaining_names = set(keys) - set(inflated_param_names)
             if remaining_names:
                 print(f'These parameters in the 2d checkpoint are not loaded: {sorted(remaining_names)}')
-
-    def make_res_layer(self,
-                       block,
-                       planes,
-                       blocks,
-                       spatial_stride=1,
-                       temporal_stride=1,
-                       dilation=1,
-                       inflate=1,
-                       inflate_style='3x1x1',
-                       non_local=0,
-                       norm_layer=None,
-                       act_layer=None):
-        """Build residual layer for ResNet3D.
-
-        Args:
-            block (nn.Module): Residual module to be built.
-            planes (int): Number of channels for the output feature
-                in each block.
-            blocks (int): Number of residual blocks.
-            spatial_stride (int | Sequence[int]): Spatial strides in
-                residual and conv layers. Default: 1.
-            temporal_stride (int | Sequence[int]): Temporal strides in
-                residual and conv layers. Default: 1.
-            dilation (int): Spacing between kernel elements. Default: 1.
-            inflate (int | Sequence[int]): Determine whether to inflate
-                for each block. Default: 1.
-            inflate_style (str): ``3x1x1`` or ``1x1x1``. which determines
-                the kernel sizes and padding strides for conv1 and conv2
-                in each block. Default: '3x1x1'.
-            non_local (int | Sequence[int]): Determine whether to apply
-                non-local module in the corresponding block of each stages.
-                Default: 0.
-            norm_layer (nn.Module): norm layers.
-                Default: None.
-            act_layer (nn.Module): activation layer.
-                Default: None.
-        Returns:
-            nn.Module: A residual layer for the given config.
-        """
-        inflate = inflate if not isinstance(inflate, int) else (inflate,) * blocks
-        non_local = non_local if not isinstance(non_local, int) else (non_local,) * blocks
-        assert len(inflate) == blocks and len(non_local) == blocks
-
-        downsample = None
-        if spatial_stride != 1 or self.inplanes != planes * block.expansion:
-            downsample = nn.Sequential(
-                convTxHxW(
-                    self.inplanes,
-                    planes * block.expansion,
-                    kernel_size=1,
-                    stride=(temporal_stride, spatial_stride, spatial_stride),
-                    padding=0,
-                    bias=False,
-                ),
-                self.norm_layer(planes * block.expansion),
-            )
-
-        layers = []
-        layers.append(
-            block(
-                self.inplanes,
-                planes,
-                spatial_stride=spatial_stride,
-                temporal_stride=temporal_stride,
-                dilation=dilation,
-                downsample=downsample,
-                inflate=(inflate[0] == 1),
-                inflate_style=inflate_style,
-                non_local=(non_local[0] == 1),
-                norm_layer=norm_layer,
-                act_layer=act_layer,
-            ))
-        self.inplanes = planes * block.expansion
-        for i in range(1, blocks):
-            layers.append(
-                block(
-                    self.inplanes,
-                    planes,
-                    spatial_stride=1,
-                    temporal_stride=1,
-                    dilation=dilation,
-                    inflate=(inflate[i] == 1),
-                    inflate_style=inflate_style,
-                    non_local=(non_local[i] == 1),
-                    norm_layer=norm_layer,
-                    act_layer=act_layer
-                ))
-
-        return nn.Sequential(*layers)
-
-    def _make_stem_layer(self, inplanes, planes, conv1_kernel, conv1_stride_t, pool1_kernel_t, pool1_stride_t):
-        """Construct the stem layers consists of a conv+norm+act module and a
-        pooling layer."""
-        self.conv1 = convTxHxW(
-            inplanes,
-            planes,
-            kernel_size=conv1_kernel,
-            stride=(conv1_stride_t, 2, 2),
-            padding=tuple([(k - 1) // 2 for k in _triple(conv1_kernel)]),
-            bias=False
-        )
-
-        self.bn1 = self.norm_layer(planes)
-        self.relu = self.act_layer(inplace=True)
-
-        self.maxpool = nn.MaxPool3d(
-            kernel_size=(pool1_kernel_t, 3, 3),
-            stride=(pool1_stride_t, 2, 2),
-            padding=(pool1_kernel_t // 2, 1, 1))
-
-        self.pool2 = nn.MaxPool3d(kernel_size=(2, 1, 1), stride=(2, 1, 1))
 
     def freezing_bn(self):
         count = 0
@@ -376,8 +354,9 @@ class ResNet3d(nn.Module):
 
         x = self.conv1(x)
         x = self.bn1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
+        x = self.act(x)
+        if self.with_pool1:
+            x = self.pool1(x)
 
         for i, layer_name in enumerate(self.res_layers):
             res_layer = getattr(self, layer_name)

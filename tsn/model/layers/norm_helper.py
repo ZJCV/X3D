@@ -2,7 +2,7 @@
 
 """
 @date: 2020/9/23 下午2:35
-@file: batchnorm_helper.py
+@file: norm_helper.py
 @author: zj
 @description: 
 """
@@ -41,3 +41,14 @@ def convert_sync_bn(model, process_group, device):
             setattr(model, child_name, m)
         else:
             convert_sync_bn(child, process_group, device)
+
+
+def get_norm(type):
+    if type == 'BatchNorm2d':
+        return nn.BatchNorm2d
+    elif type == 'BatchNorm3d':
+        return nn.BatchNorm3d
+    elif type == 'SyncBatchNorm':
+        return nn.SyncBatchNorm
+    else:
+        raise ValueError(f'{type} does not exists')

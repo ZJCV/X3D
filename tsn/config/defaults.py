@@ -48,7 +48,7 @@ _C.DATASETS.FRAME_INTERVAL = 1
 _C.DATASETS.NUM_CLIPS = 3
 # for densesample test
 _C.DATASETS.NUM_SAMPLE_POSITIONS = 10
-# for vidoe decode
+# for video decode
 # Enable multi thread decoding.
 _C.DATASETS.ENABLE_MULTI_THREAD_DECODE = False
 # Decoding backend, options include `pyav` or `torchvision`
@@ -107,12 +107,24 @@ _C.MODEL = CN()
 _C.MODEL.NAME = "TSN"
 _C.MODEL.PRETRAINED = ""
 _C.MODEL.SYNC_BN = False
-_C.MODEL.INPUT_SIZE = (224, 224, 3)
+# 卷积层类型
+_C.MODEL.CONV_LAYER = 'Conv2d'
+# 池化层类型
+_C.MODEL.POOL_LAYER = 'MaxPool2d'
+# 归一化层类型
+_C.MODEL.NORM_LAYER = 'BatchNorm2d'
+# 激活层类型
+_C.MODEL.ACT_LAYER = 'ReLU'
 
 _C.MODEL.BACKBONE = CN()
-_C.MODEL.BACKBONE.NAME = 'resnet50'
+_C.MODEL.BACKBONE.NAME = 'R50'
+# 输入通道数
+_C.MODEL.BACKBONE.IN_CHANNELS = 3
+# 是否进行partialBN
 _C.MODEL.BACKBONE.PARTIAL_BN = False
+# 是否加载预训练模型
 _C.MODEL.BACKBONE.TORCHVISION_PRETRAINED = False
+# 是否进行残差分支零初始化
 _C.MODEL.BACKBONE.ZERO_INIT_RESIDUAL = False
 
 _C.MODEL.HEAD = CN()
@@ -134,7 +146,7 @@ _C.MODEL.CRITERION.NAME = 'CrossEntropyLoss'
 # Optimizer
 # ---------------------------------------------------------------------------- #
 _C.OPTIMIZER = CN()
-_C.OPTIMIZER.NAME = 'sgd'
+_C.OPTIMIZER.NAME = 'SGD'
 _C.OPTIMIZER.LR = 1e-3
 _C.OPTIMIZER.WEIGHT_DECAY = 1e-4
 # for sgd
@@ -145,7 +157,7 @@ _C.OPTIMIZER.SGD.MOMENTUM = 0.9
 # LR_Scheduler
 # ---------------------------------------------------------------------------- #
 _C.LR_SCHEDULER = CN()
-_C.LR_SCHEDULER.NAME = 'multistep_lr'
+_C.LR_SCHEDULER.NAME = 'MultiStepLR'
 _C.LR_SCHEDULER.IS_WARMUP = False
 _C.LR_SCHEDULER.GAMMA = 0.1
 
