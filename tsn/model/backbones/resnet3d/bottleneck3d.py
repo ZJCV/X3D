@@ -8,6 +8,7 @@
 """
 
 import torch.nn as nn
+from tsn.model.layers.conv_helper import convTx1x1
 
 
 class Bottleneck3d(nn.Module):
@@ -80,12 +81,11 @@ class Bottleneck3d(nn.Module):
             conv2_padding = (0, 1, 1)
 
         # Tx1x1
-        self.conv1 = conv_layer(inplanes,
-                                planes,
-                                kernel_size=conv1_kernel_size,
-                                stride=(1, 1, 1),
-                                padding=conv1_padding,
-                                bias=False)
+        self.conv1 = convTx1x1(inplanes,
+                               planes,
+                               kernel_size=conv1_kernel_size,
+                               padding=conv1_padding,
+                               bias=False)
         self.bn1 = norm_layer(planes)
 
         # Tx3x3
@@ -100,12 +100,11 @@ class Bottleneck3d(nn.Module):
 
         # Tx1x1
         out_planes = int(planes * self.expansion)
-        self.conv3 = conv_layer(planes,
-                                out_planes,
-                                kernel_size=(1, 1, 1),
-                                stride=(1, 1, 1),
-                                padding=(0, 0, 0),
-                                bias=False)
+        self.conv3 = convTx1x1(planes,
+                               out_planes,
+                               kernel_size=(1, 1, 1),
+                               padding=(0, 0, 0),
+                               bias=False)
         self.bn3 = norm_layer(out_planes)
 
         self.act = self.act_layer(inplace=True)

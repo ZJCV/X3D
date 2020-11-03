@@ -11,8 +11,6 @@
 def add_custom_config(_C):
     # Inflated 3D ConvNet (I3D).
 
-    # 第5个卷积层kernel_size
-    _C.MODEL.HEAD.CONV5_KERNEL = (1, 1, 1)
     # 第5个卷积层通道数
     _C.MODEL.HEAD.CONV5_CHANNELS = 192
     # 第5个池化层kernel_size

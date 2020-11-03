@@ -21,8 +21,6 @@ class ResNet3d(nn.Module):
                  in_channels=3,
                  # Stem通道数
                  base_channel=64,
-                 # 第一个卷积层类型
-                 conv1_layer=None,
                  # 第一个卷积层kernel_size
                  conv1_kernel=(1, 7, 7),
                  # 第一个卷积层步长
@@ -73,8 +71,6 @@ class ResNet3d(nn.Module):
         super(ResNet3d, self).__init__()
         assert len(stage_blocks) == len(spatial_strides) == len(inflates)
 
-        if conv1_layer is None:
-            conv1_layer = nn.Conv3d
         if conv_layer is None:
             conv_layer = nn.Conv3d
         if pool_layer is None:
@@ -90,8 +86,6 @@ class ResNet3d(nn.Module):
         self.in_channels = in_channels
         # Stem通道数
         self.base_channel = base_channel
-        # 第一个卷积层类型
-        self.conv1_layer = conv1_layer
         # 第一个卷积层kernel_size
         self.conv1_kernel = conv1_kernel
         # 第一个卷积层步长
@@ -169,12 +163,12 @@ class ResNet3d(nn.Module):
                            self.state_dict_2d)
 
     def _make_stem_layer(self):
-        self.conv1 = self.conv1_layer(self.in_channels,
-                                      self.base_channel,
-                                      kernel_size=self.conv1_kernel,
-                                      stride=self.conv1_stride,
-                                      padding=self.conv1_padding,
-                                      bias=False)
+        self.conv1 = self.conv_layer(self.in_channels,
+                                     self.base_channel,
+                                     kernel_size=self.conv1_kernel,
+                                     stride=self.conv1_stride,
+                                     padding=self.conv1_padding,
+                                     bias=False)
         self.bn1 = self.norm_layer(self.base_channel)
         self.act = self.act_layer(inplace=True)
 

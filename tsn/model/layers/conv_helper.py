@@ -23,6 +23,11 @@ def get_conv(type):
         raise ValueError(f'{type} does not exists')
 
 
+def convTx1x1(in_planes, out_planes, kernel_size=(1, 1, 1), padding=(0, 0, 0), bias=False):
+    """Tx1x1 convolution"""
+    return nn.Conv3d(in_planes, out_planes, kernel_size=kernel_size, stride=1, padding=padding, bias=bias)
+
+
 class ChannelWiseConv3d(nn.Module):
     """
     通道可分离卷积

@@ -49,7 +49,6 @@ def _resnet(arch, cfg, block_layer):
         device = get_device(local_rank=get_local_rank())
         state_dict_2d = _load_pretrained(arch, map_location=device)
 
-    conv1_layer = get_conv(cfg.MODEL.BACKBONE.CONV1_LAYER)
     conv_layer = get_conv(cfg.MODEL.CONV_LAYER)
     pool_layer = get_pool(cfg.MODEL.POOL_LAYER)
     norm_layer = get_norm(cfg.MODEL.NORM_LAYER)
@@ -60,8 +59,6 @@ def _resnet(arch, cfg, block_layer):
         in_channels=cfg.MODEL.BACKBONE.IN_CHANNELS,
         # Stem通道数
         base_channel=cfg.MODEL.BACKBONE.BASE_CHANNEL,
-        # 第一个卷积层类型
-        conv1_layer=conv1_layer,
         # 第一个卷积层kernel_size
         conv1_kernel=cfg.MODEL.BACKBONE.CONV1_KERNEL,
         # 第一个卷积层步长

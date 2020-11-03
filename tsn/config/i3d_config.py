@@ -9,8 +9,6 @@ def add_custom_config(_C):
 
     # Stem通道数
     _C.MODEL.BACKBONE.BASE_CHANNEL = 64
-    # 第一个卷积层类型
-    _C.MODEL.BACKBONE.CONV1_LAYER = 'Conv3d'
     # 第一个卷积层kernel_size
     _C.MODEL.BACKBONE.CONV1_KERNEL = (1, 7, 7)
     # 第一个卷积层步长
@@ -34,7 +32,7 @@ def add_custom_config(_C):
     # 各层Block第一个卷积层的输出通道数
     _C.MODEL.BACKBONE.RES_PLANES = [64, 128, 256, 512]
     # 膨胀系数，以Bottleneck为例
-    _C.MODEL.BACKBONE.EXPANSION = 4.0
+    _C.MODEL.BACKBONE.EXPANSION = 4.
     # 空间步长
     _C.MODEL.BACKBONE.SPATIAL_STRIDES = (1, 2, 2, 2)
     # 是否进行膨胀

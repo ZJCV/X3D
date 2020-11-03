@@ -65,7 +65,6 @@ MODEL:
     TORCHVISION_PRETRAINED: True
     ZERO_INIT_RESIDUAL: True
     BASE_CHANNEL: 64
-    CONV1_LAYER: 'Conv3d'
     CONV1_KERNEL: (5, 7, 7)
     CONV1_STRIDE: (2, 2, 2)
     CONV1_PADDING: (2, 3, 3)
@@ -77,7 +76,7 @@ MODEL:
     POOL2_STRIDE: (2, 1, 1)
     STAGE_BLOCKS: (3, 4, 6, 3)
     RES_PLANES: (64, 128, 256, 512)
-    EXPANSION: 4
+    EXPANSION: 4.
     SPATIAL_STRIDES: (1, 2, 2, 2)
     INFLATES: ((1, 1, 1), (1, 0, 1, 0), (1, 0, 1, 0, 1, 0), (0, 1, 0))
     INFLATE_STYLE: '3x3x3'

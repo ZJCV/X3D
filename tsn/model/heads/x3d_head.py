@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 
 from tsn.model import registry
-from tsn.model.layers.conv_helper import get_conv
+from tsn.model.layers.conv_helper import convTx1x1
 from tsn.model.layers.pool_helper import get_pool
 from tsn.model.layers.norm_helper import get_norm
 from tsn.model.layers.act_helper import get_act
@@ -23,7 +23,6 @@ class X3DHead(nn.Module):
     def __init__(self, cfg):
         super(X3DHead, self).__init__()
 
-        conv_layer = get_conv(cfg.MODEL.CONV_LAYER)
         pool_layer = get_pool(cfg.MODEL.POOL_LAYER)
         norm_layer = get_norm(cfg.MODEL.NORM_LAYER)
         act_layer = get_act(cfg.MODEL.ACT_LAYER)
@@ -31,14 +30,12 @@ class X3DHead(nn.Module):
         in_channels = cfg.MODEL.HEAD.FEATURE_DIMS
         num_classes = cfg.MODEL.HEAD.NUM_CLASSES
         dropout_rate = cfg.MODEL.HEAD.DROPOUT
-        conv5_kernel = cfg.MODEL.HEAD.CONV5_KERNEL
         conv5_channels = cfg.MODEL.HEAD.CONV5_CHANNELS
         pool5_kernel = cfg.MODEL.HEAD.POOL5_KERNEL
 
-        self.conv5 = conv_layer(in_channels,
+        self.conv5 = convTx1x1(in_channels,
                                 conv5_channels,
-                                kernel_size=conv5_kernel,
-                                stride=1,
+                                kernel_size=1,
                                 padding=0,
                                 bias=False)
         self.bn5 = norm_layer(conv5_channels)
